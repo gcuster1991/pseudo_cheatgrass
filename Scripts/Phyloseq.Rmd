@@ -1,0 +1,149 @@
+---
+title: "Phyloseq"
+output: html_notebook
+---
+
+```{r}
+library(vegan)
+library(phyloseq)
+library(ggplot2)
+```
+
+```{r}
+#load("/Volumes/GoogleDrive/My Drive/PennState/Manuscripts/PseudoCheatgrass/NewDataLetter/16Sdada2.RData")
+#load("/Users/gordoncuster/gordon.custer91@gmail.com - Google Drive/My Drive/PennState/Manuscripts/PseudoCheatgrass/NewDataLetter/16Sdada2.RData")
+```
+
+
+```{r}
+#meta_dat <- read.csv("/Users/gordoncuster/gordon.custer91@gmail.com - Google Drive/My Drive/PennState/Manuscripts/PseudoCheatgrass/NewDataLetter/metadata.csv")
+#meta_dat <- read.csv("/Users/gordoncuster/gordon.custer91@gmail.com - Google Drive/My Drive/PennState/Manuscripts/PseudoCheatgrass/NewDataLetter/metadata.csv")
+meta_dat <- read.csv("/Users/gordoncuster/Desktop/metadata.csv")
+rownames(meta_dat) <- meta_dat$SampleID
+```
+
+```{r}
+otu<-otu_table(seqtab.nochim, taxa_are_rows = F)
+tax <- tax_table(taxa)
+md <- sample_data(meta_dat)
+
+sample_names(md)
+
+ps_orig<-phyloseq(otu, tax, md)
+```
+
+
+```{r}
+#Extract original IDs for future reference. 
+seq_df_w_OTUID<-data.frame(OTUID = 1:ntaxa(ps_orig), Sequence = taxa_names(ps_orig))
+taxa_names(ps_orig)<-paste("OTU_" , 1:ntaxa(ps_orig), sep = "")
+
+
+#remove chloroplast
+#19 chloroplast or mitochondrial taxa
+ps<-subset_taxa(ps_orig, Family!= "Mitochondria" | is.na(Family) & Order!="Chloroplast" | is.na(Order))
+
+
+#4278 bacterial taxa - 9 non-bacteria removed. 
+ps16S_bac<-subset_taxa(ps, Kingdom == "Bacteria")
+#38 archaea
+ps16S_arch<-subset_taxa(ps, Kingdom == "Archaea")
+```
+
+```{r}
+rarecurve(data.frame(otu_table(ps16S_bac)), step=50, cex=0.5, main = "Rarefaction Curve", ylab="Richness", xlab="Read Depth")
+```
+
+```{r}
+set.seed(11)
+sort(sample_sums(ps16S_bac))
+summary(sample_sums(ps16S_bac))
+sd(sample_sums(ps16S_bac))
+ps16S_bac_rarefy<-rarefy_even_depth(ps16S_bac, sample.size = 14500, rngseed = 14, trimOTUs = T)
+#517 otus were removed during rarefaction. 
+
+#To move forward, we can hellinger transform and go from there.
+ps16S_bac_hellinger<-transform_sample_counts(ps16S_bac, function(x) sqrt(x / sum(x)))
+
+#maximum liklihood point estimates
+ps16S_bac_ML<- transform_sample_counts(ps16S_bac, function(x) x / sum(x))
+```
+
+```{r}
+plot_richness(ps16S_bac_rarefy, x = "Pseudo", measures = c("Shannon", "Observed"), color = "Pseudo") + geom_boxplot() + ggtitle("") + theme_classic()  + xlab("Treatment Group")  + theme(axis.text=element_text(size=12, angle = 45, hjust = 0.75), axis.title=element_text(size=14)) + theme(strip.text.x = element_text(size = 12))
+ggsave("/Users/gordoncuster/Desktop/figs1.eps", height = 5, width = 8)
+
+alphadiv<-estimate_richness(ps16S_bac_rarefy)
+alphadiv$Pseudo <- sample_data(ps16S_bac_rarefy)$Pseudo
+mod<-aov(Shannon ~ Pseudo, data = alphadiv)
+shapiro.test(mod$residuals)
+summary(mod)
+
+mod<-aov(Observed ~ Pseudo, data = alphadiv)
+shapiro.test(mod$residuals)
+summary(mod)
+TukeyHSD(mod, "Pseudo")
+```
+```{r}
+ps_pseudo<-subset_taxa(ps16S_bac_rarefy, Family == "Pseudomonadaceae")
+
+plot_bar(ps_pseudo, x = "Pseudo", y = "Abundance", fill = "Species")
+
+count_tab <- data.frame(otu_table(ps_pseudo))
+count_tab$Treatment <- sample_data(ps_pseudo)$Pseudo
+
+count_tab %>%
+  group_by(Treatment) %>%
+  summarise_at(vars(names(count_tab)[1:3]), list(name=mean))
+count_tab %>%
+  group_by(Treatment) %>%
+  summarise_at(vars(names(count_tab)[1:3]), list(name=sd))
+
+View(alphadiv)
+alphadiv %>% filter(Pseudo == "4.94 g/ha" ) %>% summarise(across(everything(), mean))
+alphadiv %>% filter(Pseudo == "4.94 g/ha" ) %>% summarise(across(everything(), sd))
+alphadiv %>% filter(Pseudo == "0.49 g/ha" ) %>% summarise(across(everything(), mean))
+alphadiv %>% filter(Pseudo == "0.49 g/ha" ) %>% summarise(across(everything(), sd))
+```
+
+```{r}
+names(data.frame(otu_table(ps_pseudo)))
+View(tax_table(ps_pseudo))
+
+#OTUS 1115, 1408, and 2361
+
+seq_df_w_OTUID[seq_df_w_OTUID$OTUID == 1115, "Sequence"]
+seq_df_w_OTUID[seq_df_w_OTUID$OTUID == 1408, "Sequence"]
+seq_df_w_OTUID[seq_df_w_OTUID$OTUID == 2361, "Sequence"]
+
+tab_pseudo<-data.frame(otu_table(ps_pseudo))
+sd_pseudo<-data.frame(sample_data(ps_pseudo))
+
+kruskal.test(tab_pseudo$OTU_1115, sd_pseudo$Pseudo)
+kruskal.test(tab_pseudo$OTU_1408, sd_pseudo$Pseudo)
+kruskal.test(tab_pseudo$OTU_2361, sd_pseudo$Pseudo)
+
+boxplot(tab_pseudo$OTU_1115 ~ sd_pseudo$Pseudo)
+boxplot(tab_pseudo$OTU_1408 ~ sd_pseudo$Pseudo)
+boxplot(tab_pseudo$OTU_2361 ~ sd_pseudo$Pseudo)
+
+colSums(tab_pseudo)
+
+```
+
+
+```{r}
+  tab_adonis<-data.frame(otu_table(ps16S_bac_rarefy))
+  sd_adonis<-data.frame(sample_data(ps16S_bac_rarefy))
+dist_w<-phyloseq::distance(ps16S_bac_rarefy, method =  "bray")
+#betadisper
+anova(betadisper(dist_w, group = sd_adonis$Pseudo))
+#weighted
+adonis2(dist_w ~  Pseudo, data= sd_adonis, permutations = 1000)
+
+ord<-ordinate(ps16S_bac_rarefy, method = "NMDS", distance = "bray")
+plot_ordination(ps16S_bac_rarefy, ord, type = "samples", color = "Pseudo") + theme_classic() + geom_point(size = 6) +  theme(axis.text=element_text(size=12), axis.title=element_text(size=14)) + guides(fill=guide_legend(title="New Legend Title"))
+
+ggsave("/Users/gordoncuster/Desktop/figs3.eps")
+```
+

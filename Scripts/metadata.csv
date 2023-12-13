@@ -1,0 +1,27 @@
+,SampleID,Treatment,Pseudo,Imazapic,Combination,Rep
+BLANK,BLANK,BLANK,BL,BL,BL & BL,BL
+BLM1,BLM1,A,4.94 g/ha,52.6 g ai/ha,4.94 g/ha & 52.6 g ai/ha,1
+BLM2,BLM2,A,4.94 g/ha,52.6 g ai/ha,4.94 g/ha & 52.6 g ai/ha,2
+BLM3,BLM3,A,4.94 g/ha,52.6 g ai/ha,4.94 g/ha & 52.6 g ai/ha,3
+BLM4,BLM4,A,4.94 g/ha,52.6 g ai/ha,4.94 g/ha & 52.6 g ai/ha,4
+BLM5,BLM5,A,4.94 g/ha,52.6 g ai/ha,4.94 g/ha & 52.6 g ai/ha,5
+BLM6,BLM6,B,0.49 g/ha,87.7 g ai/ha,0.49 g/ha & 87.7 g ai/ha,1
+BLM7,BLM7,B,0.49 g/ha,87.7 g ai/ha,0.49 g/ha & 87.7 g ai/ha,2
+BLM8,BLM8,B,0.49 g/ha,87.7 g ai/ha,0.49 g/ha & 87.7 g ai/ha,3
+BLM9,BLM9,B,0.49 g/ha,87.7 g ai/ha,0.49 g/ha & 87.7 g ai/ha,4
+BLM10,BLM10,B,0.49 g/ha,87.7 g ai/ha,0.49 g/ha & 87.7 g ai/ha,5
+BLM11,BLM11,C,0.49 g/ha,52.6 g ai/ha,0.49 g/ha & 52.6 g ai/ha,1
+BLM12,BLM12,C,0.49 g/ha,52.6 g ai/ha,0.49 g/ha & 52.6 g ai/ha,2
+BLM13,BLM13,C,0.49 g/ha,52.6 g ai/ha,0.49 g/ha & 52.6 g ai/ha,3
+BLM14,BLM14,C,0.49 g/ha,52.6 g ai/ha,0.49 g/ha & 52.6 g ai/ha,4
+BLM15,BLM15,C,0.49 g/ha,52.6 g ai/ha,0.49 g/ha & 52.6 g ai/ha,5
+BLM16,BLM16,D,4.94 g/ha,87.7 g ai/ha,4.94 g/ha & 87.7 g ai/ha,1
+BLM17,BLM17,D,4.94 g/ha,87.7 g ai/ha,4.94 g/ha & 87.7 g ai/ha,2
+BLM18,BLM18,D,4.94 g/ha,87.7 g ai/ha,4.94 g/ha & 87.7 g ai/ha,3
+BLM19,BLM19,D,4.94 g/ha,87.7 g ai/ha,4.94 g/ha & 87.7 g ai/ha,4
+BLM20,BLM20,D,4.94 g/ha,87.7 g ai/ha,4.94 g/ha & 87.7 g ai/ha,5
+BLM21,BLM21,E,Control,Control,Control,1
+BLM22,BLM22,E,Control,Control,Control,2
+BLM23,BLM23,E,Control,Control,Control,3
+BLM24,BLM24,E,Control,Control,Control,4
+BLM25,BLM25,E,Control,Control,Control,5

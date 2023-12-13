@@ -1,0 +1,216 @@
+---
+title: "Dada2 Processing of Cheatgrass BLM Pseudomonas application"
+output: html_notebook
+---
+
+```{r}
+library(rlang)
+library(dada2) 
+library(ShortRead)
+
+#library(phangorn)
+#library(DECIPHER)
+```
+
+```{r}
+path <- ("/Users/gordoncuster/Desktop/Cheatgrass16SBLM/")
+```
+
+```{r}
+# Get full paths for all files and save them for downstream analyses
+# Forward and reverse fastq filenames have format: 
+fnFs <- sort(list.files(path, pattern="R1_", full.names = TRUE))
+fnRs <- sort(list.files(path, pattern="R2_", full.names = TRUE))
+
+sample.names <- sapply(strsplit(basename(fnFs), "_"), `[`, 1)
+#sample.names <- str_split(string = sample.names, pattern = "_", simplify = T )[,1]
+```
+
+```{r}
+# Set up pathway to cutadapt (primer trimming tool) and test
+cutadapt <- "/Users/gordoncuster/.local/bin/bin/cutadapt" # CHANGE ME to the cutadapt path on your machine
+system2(cutadapt, args = "--version") # Run shell commands from R
+
+# Set up the primer sequences to pass along to cutadapt
+FWD <- "GTGYCAGCMGCCGCGGTAA"  ## this is 515f
+REV <- "GGACTACNVGGGTWTCTAAT"  ## this is 806Br
+```
+
+```{r}
+allOrients <- function(primer) {
+    # Create all orientations of the input sequence
+    require(Biostrings)
+    dna <- DNAString(primer)  # The Biostrings works w/ DNAString objects rather than character vectors
+    orients <- c(Forward = dna, Complement = complement(dna), Reverse = reverse(dna), 
+        RevComp = reverseComplement(dna))
+    return(sapply(orients, toString))  # Convert back to character vector
+}
+FWD.orients <- allOrients(FWD)
+REV.orients <- allOrients(REV)
+FWD.orients
+REV.orients
+
+# Write a function that counts how many time primers appear in a sequence
+primerHits <- function(primer, fn) {
+    # Counts number of reads in which the primer is found
+    nhits <- vcountPattern(primer, sread(readFastq(fn)), fixed = FALSE)
+    return(sum(nhits > 0))
+}
+```
+
+```{r}
+# Name the N-filtered files to put them in filtN/ subdirectory
+fnFs.filtN <- file.path(path, "filtN", basename(fnFs))
+fnRs.filtN <- file.path(path, "filtN", basename(fnRs))
+
+# Filter Ns from reads and put them into the filtN directory
+filterAndTrim(fnFs, fnFs.filtN, fnRs, fnRs.filtN, maxN = 0, multithread = TRUE) 
+```
+
+
+```{r}
+rbind(FWD.ForwardReads = sapply(FWD.orients, primerHits, fn = fnFs.filtN[[1]]), 
+      FWD.ReverseReads = sapply(FWD.orients, primerHits, fn = fnRs.filtN[[1]]), 
+      REV.ForwardReads = sapply(REV.orients, primerHits, fn = fnFs.filtN[[1]]), 
+      REV.ReverseReads = sapply(REV.orients, primerHits, fn = fnRs.filtN[[1]]))
+```
+
+```{r}
+path.cut <- file.path(path, "cutadapt")
+if(!dir.exists(path.cut)) dir.create(path.cut)
+fnFs.cut <- file.path(path.cut, basename(fnFs))
+fnRs.cut <- file.path(path.cut, basename(fnRs))
+
+FWD.RC <- dada2:::rc(FWD)
+REV.RC <- dada2:::rc(REV)
+# Trim FWD and the reverse-complement of REV off of R1 (forward reads)
+R1.flags <- paste("-g", FWD, "-a", REV.RC) 
+# Trim REV and the reverse-complement of FWD off of R2 (reverse reads)
+R2.flags <- paste("-G", REV, "-A", FWD.RC) 
+# Run Cutadapt
+for(i in seq_along(fnFs)) {
+  system2(cutadapt, args = c(R1.flags, R2.flags, "-n", 2, # -n 2 required to remove FWD and REV from reads
+                             "-o", fnFs.cut[i], "-p", fnRs.cut[i], # output files
+                             fnFs.filtN[i], fnRs.filtN[i])) # input file
+}
+```
+
+```{r}
+rbind(FWD.ForwardReads = sapply(FWD.orients, primerHits, fn = fnFs.cut[[1]]), 
+    FWD.ReverseReads = sapply(FWD.orients, primerHits, fn = fnRs.cut[[1]]), 
+    REV.ForwardReads = sapply(REV.orients, primerHits, fn = fnFs.cut[[1]]), 
+    REV.ReverseReads = sapply(REV.orients, primerHits, fn = fnRs.cut[[1]]))
+```
+
+
+```{r}
+# Forward and reverse fastq filenames have the format:
+cutFs <- sort(list.files(path.cut, pattern = "R1_", full.names = TRUE))
+cutRs <- sort(list.files(path.cut, pattern = "R2_", full.names = TRUE))
+
+# Extract sample names, assuming filenames have format:
+#get.sample.name <- function(fname) strsplit(basename(fname), "R1_")[[1]][2]
+#sample.names <- unname(sapply(cutFs, get.sample.name))
+head(sample.names)
+```
+
+cutadapts not plotting
+```{r}
+plotQualityProfile(cutFs[1])
+plotQualityProfile(cutRs[1])
+
+plotQualityProfile(fl = fnFs[1:10])
+plotQualityProfile(fl = fnRs[1:10])
+```
+
+
+```{r}
+filtFs <- file.path(path.cut, "filtered", basename(cutFs))
+filtRs <- file.path(path.cut, "filtered", basename(cutRs))
+```
+
+```{r}
+#exploratory plots for quality.
+#plotQualityProfile(cutRs[1], aggregate = T)
+#plotQualityProfile(cutFs[1], aggregate = T)
+
+out <- filterAndTrim(cutFs, filtFs, cutRs, filtRs, truncQ = 2, truncLen = c(220,200),
+              maxN=0, maxEE=c(1,2), rm.phix=TRUE,
+              compress=TRUE, multithread=TRUE) # On Windows set multithread=FALSE
+head(out)
+
+plotQualityProfile(filtFs[1:4])
+plotQualityProfile(filtRs[1:4])
+```
+
+```{r}
+errF <- learnErrors(filtFs, nbases = 1e8, multithread = TRUE)
+errR <- learnErrors(filtRs, nbases = 1e8, multithread = TRUE)
+```
+
+```{r}
+plotErrors(errF, nominalQ = TRUE)
+plotErrors(errR, nominalQ = TRUE)
+```
+
+```{r}
+derepFs <- derepFastq(filtFs, verbose=TRUE)
+derepRs <- derepFastq(filtRs, verbose=TRUE)
+# Name the derep-class objects by the sample names
+names(derepFs) <- sample.names
+names(derepRs) <- sample.names
+```
+
+```{r}
+dadaFs <- dada(derepFs, err = errF, multithread = TRUE)
+dadaRs <- dada(derepRs, err = errR, multithread = TRUE)
+```
+
+```{r}
+mergers <- mergePairs(dadaFs, derepFs, dadaRs, derepRs, verbose=TRUE, returnRejects = T)
+```
+
+```{r}
+seqtab_orig <- makeSequenceTable(mergers)
+dim(seqtab_orig)
+
+table(nchar(getSequences(seqtab_orig)))
+
+seqtab <- seqtab_orig[,nchar(colnames(seqtab_orig)) %in% 252:255]
+dim(seqtab)
+```
+
+```{r}
+seqtab.nochim <- removeBimeraDenovo(seqtab, method="consensus", multithread=TRUE, verbose=TRUE)
+dim(seqtab.nochim)
+table(nchar(getSequences(seqtab.nochim)))
+```
+
+```{r}
+getN <- function(x) sum(getUniques(x))
+track <- cbind(out, sapply(dadaFs, getN), sapply(dadaRs, getN), sapply(mergers, 
+    getN), rowSums(seqtab_orig), rowSums(seqtab), rowSums(seqtab.nochim))
+# If processing a single sample, remove the sapply calls: e.g. replace
+# sapply(dadaFs, getN) with getN(dadaFs)
+colnames(track) <- c("input", "filtered", "denoisedF", "denoisedR", "merged", "seqtaborig", "seqtab",
+    "nonchim")
+rownames(track) <- sample.names
+head(track)
+
+colSums(track)
+colSums(track)[ncol(track)]/colSums(track)[1]
+
+#summary of last column of track 
+summary(track[,ncol(track)])
+```
+
+
+```{r}
+taxa <- assignTaxonomy(seqtab.nochim, "/Volumes/GoogleDrive/My Drive/databases/silva_nr99_v138.1_wSpecies_train_set.fa.gz", multithread=TRUE)
+```
+
+```{r}
+taxa.print <- taxa # Removing sequence rownames for display only
+rownames(taxa.print) <- NULL
+head(taxa.print)
+```
